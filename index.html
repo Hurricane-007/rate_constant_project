@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chemical Reaction Engineering: Reactors in Series Analyzer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top App Navigation & Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">⚛</div>
+        <div>
+          <h1 class="brand-title">Reactors in Series Analyzer</h1>
+          <p class="brand-subtitle">First-Order & Second-Order Space-Time Performance (τN / τP)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Kinetics Selector Tabs -->
+        <div class="kinetics-tabs" role="tablist">
+          <button id="tabFirst" class="tab-btn active" role="tab" aria-selected="true">
+            First-Order (−rA = kCA)
+          </button>
+          <button id="tabSecond" class="tab-btn" role="tab" aria-selected="false">
+            Second-Order (−rA = kCA²)
+          </button>
+          <button id="tabCompare" class="tab-btn" role="tab" aria-selected="false">
+            Comparison Overlay
+          </button>
+        </div>
+
+        <!-- Dark / Light Theme Toggle -->
+        <button id="themeToggle" class="btn-icon" title="Toggle Dark/Light Mode" aria-label="Toggle theme">
+          🌙
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="main-layout">
+    
+    <!-- Left Column: Inputs & Controls -->
+    <aside class="sidebar-controls">
+      
+      <!-- Input Controls Card -->
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Parameter Inputs</h2>
+            <p class="card-subtitle">Tune coordinates or click points directly on the graph</p>
+          </div>
+        </div>
+
+        <!-- Input 1: x = CA / CA0 -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label for="xNumber" class="control-label">Outlet Ratio, x = CA/CA₀</label>
+            <span class="control-hint">0 &lt; x &lt; 1</span>
+          </div>
+          <div class="input-with-slider">
+            <input type="range" id="xSlider" class="range-slider" min="0.01" max="0.99" step="0.005" value="0.10">
+            <input type="number" id="xNumber" class="number-input" min="0.001" max="0.999" step="0.01" value="0.100">
+          </div>
+        </div>
+
+        <!-- Input 2: y = tau_N / tau_P -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label for="yNumber" class="control-label">Graph Ratio, y = τN / τP</label>
+            <span class="control-hint">y ≥ 1.0</span>
+          </div>
+          <div class="input-with-slider">
+            <input type="number" id="yNumber" class="number-input" style="width: 100%; text-align: left;" min="1.0" max="150" step="0.1" value="2.000">
+          </div>
+        </div>
+
+        <!-- Input 3: N = Number of CSTRs -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <label for="nNumber" class="control-label">Number of Equal CSTRs, N</label>
+            <span class="control-hint">Integer ≥ 1</span>
+          </div>
+          <div class="input-with-slider">
+            <input type="range" id="nSlider" class="range-slider" min="1" max="50" step="1" value="3">
+            <input type="number" id="nNumber" class="number-input" min="1" max="100" step="1" value="3">
+          </div>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-label">Quick Presets</span>
+          </div>
+          <div class="presets-container">
+            <button type="button" class="preset-chip" data-x="0.10" data-y="2.0" data-n="3">Default (x=0.10, N=3)</button>
+            <button type="button" class="preset-chip" data-x="0.01" data-y="5.0" data-n="4">99% Conv (N=4)</button>
+            <button type="button" class="preset-chip" data-x="0.05" data-y="3.2" data-n="2">95% Conv (N=2)</button>
+            <button type="button" class="preset-chip" data-x="0.10" data-y="3.9" data-n="1">Single CSTR (N=1)</button>
+            <button type="button" class="preset-chip" data-x="0.50" data-y="1.2" data-n="6">50% Conv (N=6)</button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-row">
+          <button id="calcBtn" class="btn btn-primary">Calculate / Update</button>
+          <button id="resetBtn" class="btn btn-secondary">Reset</button>
+        </div>
+
+        <label class="toggle-wrapper">
+          <input type="checkbox" id="liveUpdateCheck" checked>
+          <span>Real-time calculation on input change</span>
+        </label>
+      </section>
+
+      <!-- Reactor Cascade Schematic Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">CSTR Cascade Profile</h2>
+        </div>
+        <p class="card-subtitle" style="margin-bottom: 0.75rem;">
+          Dimensionless reactant concentration profile across successive stages:
+        </p>
+        <div id="reactorChain" class="reactor-chain">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- Right Column: Results & Interactive Plot -->
+    <div class="content-display">
+      
+      <!-- Key Results Metrics Grid -->
+      <div class="metrics-grid">
+        
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Conversion, XA</span>
+            <span>1 − x</span>
+          </div>
+          <div id="metricConversion" class="metric-value">90.00%</div>
+          <div class="progress-bar-bg">
+            <div id="conversionBar" class="progress-bar-fill" style="width: 90%;"></div>
+          </div>
+          <div class="metric-sub" style="margin-top: 6px;">CA/CA₀ remaining: <strong id="metricReactant">0.100</strong></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Predicted Ratio</span>
+            <span>τN / τP (Model)</span>
+          </div>
+          <div id="metricPredictedY" class="metric-value" style="color: var(--primary);">1.504</div>
+          <div class="metric-sub">Entered y: <strong id="metricEnteredY">2.000</strong></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Relative Deviation</span>
+            <span>|y − y_pred| / y_pred</span>
+          </div>
+          <div id="metricDeviation" class="metric-value" style="color: var(--warning);">32.97%</div>
+          <div class="metric-sub">Threshold for consistency: ≤ 5.0%</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Space-Times</span>
+            <span>Dimensionless</span>
+          </div>
+          <div style="margin: 0.35rem 0;">
+            <div style="font-size: 0.85rem; font-family: monospace; font-weight: 600;">
+              <span id="labelTauN">k·τN</span>: <span id="metricTauN" style="color: var(--primary);">3.4633</span>
+            </div>
+            <div style="font-size: 0.85rem; font-family: monospace; font-weight: 600; margin-top: 4px;">
+              <span id="labelTauP">k·τP</span>: <span id="metricTauP" style="color: var(--accent);">2.3026</span>
+            </div>
+          </div>
+          <div class="metric-sub">Stage time: τ_stage = τN / N</div>
+        </div>
+
+      </div>
+
+      <!-- Consistency Status Notification Banner -->
+      <div id="statusCard" class="status-card discrepancy">
+        <div class="status-icon">ℹ️</div>
+        <div class="status-details">
+          <div id="statusTitle" class="status-title">Model Discrepancy</div>
+          <div id="statusDesc">The entered y value does not match the theoretical model. Conversion is determined directly by x.</div>
+        </div>
+      </div>
+
+      <!-- Log-Log Graph Canvas Card -->
+      <section class="graph-card">
+        <div class="graph-toolbar">
+          <div>
+            <h2 class="card-title">Space-Time Ratio Performance Curve (Log-Log)</h2>
+            <p class="card-subtitle">τN / τP vs CA/CA0 = 1 − XA (Click anywhere to place marker)</p>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <label class="toggle-wrapper" style="margin-top: 0;">
+              <input type="checkbox" id="contourToggleCheck" checked>
+              <span>Show Levenspiel k·τ Constants</span>
+            </label>
+            <button id="exportPlotBtn" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+              📷 Export PNG
+            </button>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div id="legendList" class="graph-legend-inline" style="margin-bottom: 0.75rem;"></div>
+
+        <!-- High-DPI Interactive Canvas -->
+        <div class="canvas-wrapper">
+          <canvas id="reactorCanvas"></canvas>
+          <div id="graphTooltip" class="graph-tooltip"></div>
+        </div>
+      </section>
+
+      <!-- Theory & Reference Section (Collapsible Accordion) -->
+      <section class="theory-accordion">
+        <details open>
+          <summary class="accordion-header">
+            <span>📚 Chemical Reaction Engineering Theory & Derivations</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Expand / Collapse</span>
+          </summary>
+          <div class="accordion-body">
+            
+            <div id="theoryFirst">
+              <h3 style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
+                First-Order Kinetics (−rA = k·CA)
+              </h3>
+              <p>For an isothermal, constant-density first-order reaction:</p>
+              
+              <div class="equation-box">
+                Plug Flow Reactor (PFR):<br>
+                τP = −(1/k) · ln(CA/CA0) = −(1/k) · ln(x)<br>
+                ⟹ k·τP = −ln(x)
+              </div>
+
+              <div class="equation-box">
+                N Equal CSTRs in Series:<br>
+                For each stage i: CA(i-1) − CAi = k · τ_stage · CAi  ⟹  CA(i-1) / CAi = 1 + k·τN/N<br>
+                Across N stages: CA0 / CAN = (1 + k·τN/N)^N  ⟹  x = CAN/CA0 = (1 + k·τN/N)^(-N)<br>
+                Rearranging: k·τN = N · [x^(-1/N) − 1]<br>
+                Predicted Ratio: y_pred = τN / τP = N · [x^(-1/N) − 1] / [−ln(x)]
+              </div>
+            </div>
+
+            <div id="theorySecond" style="display: none; margin-top: 1rem;">
+              <h3 style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">
+                Second-Order Kinetics (−rA = k·CA²)
+              </h3>
+              <p>For an isothermal, constant-density second-order reaction:</p>
+              
+              <div class="equation-box">
+                Plug Flow Reactor (PFR):<br>
+                k·CA0·τP = (CA0 / CA) − 1 = (1/x) − 1
+              </div>
+
+              <div class="equation-box">
+                N Equal CSTRs in Series:<br>
+                Define β = k·CA0·τ_stage = k·CA0·τN / N.<br>
+                Stage balance: c_(i-1) = c_i + β·(c_i)² ⟹ c_i = 2·c_(i-1) / [1 + √(1 + 4·β·c_(i-1))]<br>
+                Given outlet ratio x = c_N, β is solved numerically by bisection.<br>
+                Then k·CA0·τN = N · β.<br>
+                Predicted Ratio: y_pred = τN / τP = (N · β) / [(1/x) − 1]
+              </div>
+            </div>
+
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-top: 1rem; margin-bottom: 0.5rem;">
+              Key Chemical Engineering Insights:
+            </h4>
+            <ul style="padding-left: 1.25rem; margin-bottom: 1rem;">
+              <li><strong>Why τN / τP ≥ 1:</strong> A CSTR operates at the lowest reactant concentration (the exit concentration), minimizing reaction rate and requiring a larger volume. A PFR maintains high reactant concentration along its length.</li>
+              <li><strong>PFR Limit (N → ∞):</strong> As the number of mixed tanks in series increases, backmixing decreases and the fluid behavior approaches plug flow, with τN/τP → 1.0.</li>
+              <li><strong>Higher Reaction Order Amplifies Volume Differences:</strong> Second-order reactions are even more sensitive to backmixing than first-order reactions; thus, a single CSTR requires a substantially larger volume for second-order reactions at high conversions.</li>
+            </ul>
+
+            <!-- Performance Reference Table -->
+            <table class="reference-table">
+              <thead>
+                <tr>
+                  <th>Conversion (XA)</th>
+                  <th>Reactant Ratio (x)</th>
+                  <th>Order</th>
+                  <th>N = 1 (Single CSTR)</th>
+                  <th>N = 2</th>
+                  <th>N = 4</th>
+                  <th>N = 10</th>
+                  <th>PFR (N → ∞)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>90%</td>
+                  <td>0.10</td>
+                  <td>1st Order</td>
+                  <td>3.91</td>
+                  <td>1.88</td>
+                  <td>1.36</td>
+                  <td>1.13</td>
+                  <td>1.00</td>
+                </tr>
+                <tr>
+                  <td>90%</td>
+                  <td>0.10</td>
+                  <td>2nd Order</td>
+                  <td>10.00</td>
+                  <td>3.06</td>
+                  <td>1.71</td>
+                  <td>1.23</td>
+                  <td>1.00</td>
+                </tr>
+                <tr>
+                  <td>99%</td>
+                  <td>0.01</td>
+                  <td>1st Order</td>
+                  <td>21.50</td>
+                  <td>3.91</td>
+                  <td>1.88</td>
+                  <td>1.27</td>
+                  <td>1.00</td>
+                </tr>
+                <tr>
+                  <td>99%</td>
+                  <td>0.01</td>
+                  <td>2nd Order</td>
+                  <td>100.00</td>
+                  <td>10.00</td>
+                  <td>3.06</td>
+                  <td>1.54</td>
+                  <td>1.00</td>
+                </tr>
+              </tbody>
+            </table>
+
+          </div>
+        </details>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>Chemical Reaction Engineering: Reactors in Series Simulation Suite</p>
+    <p style="margin-top: 4px;">Standalone static web application based on Levenspiel chemical reactor modeling.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

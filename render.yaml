@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: reactor-series-analyzer
+    env: static
+    buildCommand: ""
+    staticPublishPath: .
